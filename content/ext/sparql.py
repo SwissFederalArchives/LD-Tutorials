@@ -23,6 +23,7 @@ async def query(query_string, store = "L", set_na = False):
     try:
         resp = await fetch(address,
           method="POST",
+          mode="no-cors",
           body="query=" + query_string.replace("+", "%2B").replace("&", "%26"),
           credentials="same-origin",
           headers=Object.fromEntries(to_js({"Content-Type": "application/x-www-form-urlencoded; charset=UTF-8", 
