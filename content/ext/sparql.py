@@ -19,7 +19,8 @@ def query(query_string, store="L"):
     """
     # Define the headers for the request
     headers = {
-        'Accept': 'application/sparql-results+json'
+        'Accept': 'application/sparql-results+json',
+        'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8'
     }
 
     # three Swiss triplestores
@@ -31,9 +32,15 @@ def query(query_string, store="L"):
         address = 'https://ld.admin.ch/query'
     else:
         address = store
+
+    # URL-encode the query parameters
+    payload = {'query': query_string}
     
     # Send the request to the SPARQL endpoint
-    response = requests.get(address, params={'query': query_string}, headers=headers)
+    response = requests.post(address, data=payload, headers=headers)
+
+    # Ensure the response uses UTF-8 encoding
+    response.encoding = 'utf-8'
     
     # Raise an exception if the request was not successful
     response.raise_for_status()
