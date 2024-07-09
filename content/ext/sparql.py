@@ -1,5 +1,6 @@
 import requests
 import pandas as pd
+from IPython.display import HTML
 import urllib3
 
 # Suppress the InsecureRequestWarning
