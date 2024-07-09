@@ -1,12 +1,26 @@
-import json
+import requests
 import pandas as pd
-from pyodide.ffi import to_js
-from IPython.display import JSON, HTML
-from js import Object, fetch
-from io import StringIO
+import urllib3
 
-async def query(query_string, store = "L", set_na = False):
+# Suppress the InsecureRequestWarning
+urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
+
+def query(query_string, store="L"):
+    """
+    Sends a SPARQL query to a SPARQL endpoint and returns the results as a pandas DataFrame.
     
+    Parameters:
+    - query_string: The SPARQL query string.
+    - store: The URL of the SPARQL endpoint (triple store) or some predefined abbrevations.
+    
+    Returns:
+    - A pandas DataFrame containing the query results.
+    """
+    # Define the headers for the request
+    headers = {
+        'Accept': 'application/sparql-results+json'
+    }
+
     # three Swiss triplestores
     if store == "F":
         address = 'https://fedlex.data.admin.ch/sparqlendpoint'
@@ -17,42 +31,27 @@ async def query(query_string, store = "L", set_na = False):
     else:
         address = store
     
-    # try the Post request with help of JS fetch
-    # the creation of the request header is a little bit complicated because it needs to be a 
-    # JavaScript JSON that is made within a Python source code
-    try:
-        resp = await fetch(address,
-          method="POST",
-          body="query=" + query_string.replace("+", "%2B").replace("&", "%26"),
-          credentials="same-origin",
-          headers=Object.fromEntries(to_js({"Content-Type": "application/x-www-form-urlencoded; charset=UTF-8", 
-                                            "Accept": "text/csv" })),
-        )
-    except:
-        raise RuntimeError("fetch failed")
+    # Send the request to the SPARQL endpoint
+    response = requests.get(address, params={'query': query_string}, headers=headers)
     
+    # Raise an exception if the request was not successful
+    response.raise_for_status()
     
-    if resp.ok:
-        res = await resp.text()
-        # ld.admin.ch throws errors starting with '{"message":'
-        if '{"message":' in res:
-            error = json.loads(res)
-            raise RuntimeError("SPARQL query malformed: " + error["message"])
-        # geo.ld.admin.ch throws errors starting with 'Parse error:'
-        elif 'Parse error:' in res:
-            raise RuntimeError("SPARQL query malformed: " + res)
-        else:
-            # if everything works out, create a pandas dataframe from the csv result
-            df = pd.read_csv(StringIO(res), na_filter = set_na)
-            return df
-    else:
-        # fedlex.data.admin.ch throws error with response status 400
-        if resp.status == 400:
-            raise RuntimeError("Response status 400: Possible malformed SPARQL query. No syntactic advice available.")
-        else:
-            raise RuntimeError("Response status " + str(resp.status))
-            
-            
+    # Parse the JSON response
+    results = response.json()
+    
+    # Extract the variable names and the data
+    columns = results['head']['vars']
+    data = [
+        {var: binding.get(var, {}).get('value') for var in columns}
+        for binding in results['results']['bindings']
+    ]
+    
+    # Create a pandas DataFrame from the data
+    df = pd.DataFrame(data, columns=columns)
+    
+    return df
+
 def display_result(df):
     df = HTML(df.to_html(render_links=True, escape=False))
     display(df)
