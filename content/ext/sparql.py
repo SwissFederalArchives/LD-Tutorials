@@ -57,6 +57,10 @@ def query(query_string, store="L"):
     
     # Create a pandas DataFrame from the data
     df = pd.DataFrame(data, columns=columns)
+
+    # Convert columns to numeric datatype if possible
+    for col in df.columns:
+        df[col] = pd.to_numeric(df[col], errors='ignore')
     
     return df
 
